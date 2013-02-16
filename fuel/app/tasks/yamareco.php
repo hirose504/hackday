@@ -16,7 +16,7 @@ class Yamareco
 			$file = sprintf(static::FILENAME_FORMAT, $i);
 			$uri  = "http://www.yamareco.com/modules/yamareco/{$file}";
 
-			if (file_exists($path.'/'.$file) and $overwrite)
+			if ( ! file_exists($path.'/'.$file) or $overwrite)
 			{
 				$curl = \Request_Curl::forge($uri)->execute();
 
