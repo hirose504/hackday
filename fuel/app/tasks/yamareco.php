@@ -40,4 +40,50 @@ class Yamareco
 			}
 		}
 	}
+
+	public static function parse($id = null)
+	{
+		$path = realpath(DOCROOT.'/fuel/app/cache/');
+
+		if (empty($id))
+		{
+			$contents = \File::read_dir($path, 0, array('\.gpx$' => 'file'));
+
+			foreach ($contents as $content)
+			{
+				if (preg_match('/[0-9]+/', $content, $matches))
+				{
+					static::parse(reset($matches));
+				}
+			}
+		}
+
+		else
+		{
+			$file = sprintf(static::FILENAME_FORMAT, $id);
+
+			\Debug::dump($path.'/'.$file);
+
+			try
+			{
+				$content = \File::read($path.'/'.$file, true);
+				$gpx = \Format::forge($content, 'xml')->to_array();
+
+				$yamareco = \Model_Yamareco::forge();
+
+				$yamareco->id = $id;
+				$yamareco->name = \Arr::get($gpx, 'trk.name');
+				$yamareco->line = \Arr::get($gpx, 'trk.trkseg.trkpt');
+
+				if ($yamareco->save())
+				{
+					// 成功
+				}
+			}
+			catch (\FileAccessException $e)
+			{
+				// 何もしない
+			}
+		}
+	}
 }
