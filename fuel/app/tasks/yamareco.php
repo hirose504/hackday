@@ -98,6 +98,9 @@ class Yamareco
 				$name  = \Arr::get($gpx, 'trk.name');
 				$trkpt = \Arr::get($gpx, 'trk.trkseg.trkpt', array());
 
+				\DB::query("DELETE FROM `points` WHERE `line_id` = '{$id}'")
+				->as_object('Model_Point')->execute();
+
 				foreach ($trkpt as $point)
 				{
 					$lat = \Arr::get($point, '@attributes.lat');
@@ -106,6 +109,16 @@ class Yamareco
 					if ($lat and $lon)
 					{
 						$line[] = "{$lon} {$lat}";
+
+						try
+						{
+							\DB::query("INSERT INTO `points` (`line_id`, `point`) VALUES ('{$id}', GeomFromText('POINT({$lon} {$lat})'))")
+							->as_object('Model_Point')->execute();
+						}
+						catch (\Exception $e)
+						{
+// 							\Cli::write("error  $file");
+						}
 					}
 				}
 
@@ -120,15 +133,15 @@ class Yamareco
 
 				try
 				{
-					if (\Model_Yamareco::find($id))
+					if (\Model_Line::find($id))
 					{
-						\DB::query("UPDATE `yamarecos` SET `name` = '{$name}', `line` = {$line} WHERE `id` = '{$id}'")
-						->as_object('Model_Yamareco')->execute();
+						\DB::query("UPDATE `lines` SET `name` = '{$name}', `line` = {$line} WHERE `id` = '{$id}'")
+						->as_object('Model_Line')->execute();
 					}
 					else
 					{
-						\DB::query("INSERT INTO `yamarecos` (`id`, `name`, `line`) VALUES ('{$id}', '{$name}', {$line})")
-						->as_object('Model_Yamareco')->execute();
+						\DB::query("INSERT INTO `lines` (`id`, `name`, `line`) VALUES ('{$id}', '{$name}', {$line})")
+						->as_object('Model_Line')->execute();
 					}
 
 					\Cli::write("parsed $file");
