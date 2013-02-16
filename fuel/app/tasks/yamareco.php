@@ -18,7 +18,9 @@ class Yamareco
 
 			if ( ! file_exists($path.'/'.$file) or $overwrite)
 			{
-				$curl = \Request_Curl::forge($uri)->execute();
+				$curl = \Request_Curl::forge($uri);
+				$curl->set_option('MAX_RECV_SPEED_LARGE', 100*1024);
+				$curl->execute();
 
 				if ($body = $curl->response()->body())
 				{
@@ -33,10 +35,32 @@ class Yamareco
 
 					\Cli::write("downloaded: $file");
 				}
+				else
+				{
+					\Cli::write("not found: $uri");
+				}
 			}
 			else
 			{
 				\Cli::write("file exists: $file");
+			}
+		}
+	}
+
+	public static function download_from_file($filename)
+	{
+		$content = \File::read($filename, true);
+		$list = \Format::forge($content, 'yaml')->to_array();
+
+		$count = count($list);
+
+		for ($i = 0; $i < $count; $i++)
+		{
+			\Cli::write("$i/$count");
+
+			if (preg_match('/[0-9]+/', $list[$i], $matches))
+			{
+				static::download(reset($matches));
 			}
 		}
 	}
