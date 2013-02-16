@@ -73,9 +73,13 @@ class Yamareco
 		{
 			$contents = \File::read_dir($path, 0, array('\.gpx$' => 'file'));
 
-			foreach ($contents as $content)
+			$count = count($contents);
+
+			for ($i = 0; $i < $count; $i++)
 			{
-				if (preg_match('/[0-9]+/', $content, $matches))
+				\Cli::write("$i/$count");
+
+				if (preg_match('/[0-9]+/', $contents[$i], $matches))
 				{
 					static::parse(reset($matches));
 				}
@@ -86,22 +90,52 @@ class Yamareco
 		{
 			$file = sprintf(static::FILENAME_FORMAT, $id);
 
-			\Debug::dump($path.'/'.$file);
-
 			try
 			{
 				$content = \File::read($path.'/'.$file, true);
 				$gpx = \Format::forge($content, 'xml')->to_array();
 
-				$yamareco = \Model_Yamareco::forge();
+				$name  = \Arr::get($gpx, 'trk.name');
+				$trkpt = \Arr::get($gpx, 'trk.trkseg.trkpt', array());
 
-				$yamareco->id = $id;
-				$yamareco->name = \Arr::get($gpx, 'trk.name');
-				$yamareco->line = \Arr::get($gpx, 'trk.trkseg.trkpt');
-
-				if ($yamareco->save())
+				foreach ($trkpt as $point)
 				{
-					// 成功
+					$lat = \Arr::get($point, '@attributes.lat');
+					$lon = \Arr::get($point, '@attributes.lon');
+
+					if ($lat and $lon)
+					{
+						$line[] = "{$lon} {$lat}";
+					}
+				}
+
+				$name = is_string($name) ? $name : '';
+				$line = isset($line) ? "GeomFromText('LineString(".implode(',', $line).")')" : '';
+
+				if (empty($line))
+				{
+					\Cli::write("pass   $file");
+					return;
+				}
+
+				try
+				{
+					if (\Model_Yamareco::find($id))
+					{
+						\DB::query("UPDATE `yamarecos` SET `name` = '{$name}', `line` = {$line} WHERE `id` = '{$id}'")
+						->as_object('Model_Yamareco')->execute();
+					}
+					else
+					{
+						\DB::query("INSERT INTO `yamarecos` (`id`, `name`, `line`) VALUES ('{$id}', '{$name}', {$line})")
+						->as_object('Model_Yamareco')->execute();
+					}
+
+					\Cli::write("parsed $file");
+				}
+				catch (\Exception $e)
+				{
+					\Cli::write("error  $file");
 				}
 			}
 			catch (\FileAccessException $e)
